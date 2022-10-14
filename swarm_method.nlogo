@@ -1,99 +1,170 @@
-breed [birds bird]
-birds-own [
-  closest-dist
-  n-mates
-  aligning
+globals [
+  best-val
+]
+
+patches-own[val]
+
+breed [particles particle]
+particles-own[
+  vx
+  vy
+  p-val
+  p-x
+  p-y
+  g-val
+  g-x
+  g-y
 ]
 
 to setup
   clear-all
-  setup-patches
-  setup-birds
+  setup-landscape
+  create-swarm
   reset-ticks
 end
 
-to setup-patches
+to colorize-plane
   ask patches [
-    set pcolor 89
+    set val eval-target pxcor pycor
+  ]
+  set best-val min [val] of patches
+  if target-function = "random" [
+    repeat 50 [diffuse val 0.5]
+  ]
+  let min-val min [val] of patches
+  let max-val max [val] of patches
+  ask patches [
+    set pcolor scale-color violet val max-val min-val
   ]
 end
 
-to setup-birds
-  create-birds flock-size
-  ask birds [
+to setup-min-marks
+  create-turtles 1 [
+    let min-x 0
+    let min-y 0
+    ask patches with-min [val] [
+      set min-x pxcor
+      set min-y pycor
+    ]
+    setxy min-x min-y
+    set shape "x"
+    set color green
+    set size 6
+  ]
+end
+
+to setup-landscape
+  colorize-plane
+  setup-min-marks
+end
+
+to create-swarm
+  create-particles particles-number [
     setxy random-xcor random-ycor
-    set shape "airplane"
-    set size 2
+    set color red
+    set shape "circle"
+    set size 4
+    set vx dx
+    set vy dy
+    set p-val val
+    set p-x xcor
+    set p-y ycor
+    set g-val val
+  ]
+end
+
+to choose-best-val
+  if val < p-val [
+    set p-val val
+    set p-x xcor
+    set p-y ycor
+  ]
+  if val < g-val [
+    set g-val val
+    set g-x xcor
+    set g-y ycor
   ]
 end
 
 to go
-  update-heading
-  ask birds [
-    ifelse track-flight?
-    [pen-down] [pen-up]
-    fd velocity * random-normal 1.0 0.1
+  if not trace? [clear-drawing]
+  ask particles [
+    pendown
+    facexy xcor + vx ycor + vy
+    fd sqrt (vx ^ 2 + vy ^ 2)
+    choose-best-val
   ]
-  tick
-end
-
-to update-heading
-  ask birds [
-    let mates other birds in-cone vision (2 * omega)
-    if any? mates [
-      set n-mates count mates
-      let alpha 0.2 + random-float 0.2
-      let beta 0.2 + random-float 0.2
-      let gamma 0.1 + random-float 0.1
-      let h-sep heading
-      let h-align heading
-      let h-flock heading
-      if separate? [
-        let min-mate min-one-of mates [distance myself]
-        set closest-dist [distance myself] of min-mate
-        if closest-dist < min-sep [
-          set h-sep (180 + towards min-mate)
-        ]
-      ]
-      if align? [
-        let xa sum [dx] of mates
-        let ya sum [dy] of mates
-        set h-align atan xa ya
-      ]
-      if flock? [
-        let xf sum [sin (towards myself + 180)] of mates
-        let yf sum [cos (towards myself + 180)] of mates
-        set h-flock atan xf yf
-      ]
-      let dx-new dx + alpha * sin h-sep + beta * sin h-align + gamma * sin h-flock
-      let dy-new dy + alpha * cos h-sep + beta * cos h-align + gamma * cos h-flock
-      set heading atan dx-new dy-new
+  ask particles [
+    let min-x g-x
+    let min-y g-y
+    let min-g g-val
+    let mates other particles in-radius vision
+    ask mates with-min [val] [
+      set min-x g-x
+      set min-y g-y
+      set min-g g-val
+    ]
+    if min-g < g-val [
+      set g-val min-g
+      set g-x min-x
+      set g-y min-y
     ]
   ]
-  count-align
+ ask particles [
+    if not (p-x = xcor and p-y = ycor) [
+      let h towardsxy p-x p-y
+      let d distancexy p-x p-y
+      let alpha random-float alpha-max
+      set vx gamma * vx + alpha * d * sin h
+      set vy gamma * vy + alpha * d * cos h
+    ]
+    if not (g-x = xcor and g-y = ycor) [
+      let h towardsxy g-x g-y
+      let d distancexy g-x g-y
+      let beta random-float beta-max
+      set vx gamma * vx + beta * d * sin h
+      set vy gamma * vy + beta * d * cos h
+    ]
+    if vx > v-max [
+      set vx v-max
+    ]
+    if vy > v-max [
+      set vy v-max
+    ]
+ ]
+ tick
 end
 
-to count-align
-  let all-dx sum[dx] of birds
-  let all-dy sum[dy] of birds
-  ask birds [
-    set all-dx (all-dx - dx)
-    set all-dy (all-dy - dy)
-    let all-dl sqrt(all-dx * all-dx + all-dy * all-dy)
-    set all-dx (all-dx / all-dl)
-    set all-dy (all-dy / all-dl)
-    set aligning abs(dx * all-dx + dy * all-dy)
+to-report eval-target[x y]
+  if target-function = "rastrigin" [
+    report rastrigin (x / 10) (y / 10)
   ]
+  if target-function = "random" [
+    report random-func
+  ]
+  report sphere (x / 10) (y / 10)
+end
+
+to-report sphere[x y]
+  report x * x + y * y
+end
+
+to-report rastrigin[x y]
+  report x * x + y * y + 10 * (2 - cos(x * 360)  - cos(360 * y))
+end
+
+to-report random-func
+  report random-float 1
 end
 @#$#@#$#@
 GRAPHICS-WINDOW
 0
 10
-494
-505
+635
+646
 -1
 -1
-9.53
+3.12
 1
 10
 1
@@ -103,36 +174,31 @@ GRAPHICS-WINDOW
 1
 1
 1
--25
-25
--25
-25
-0
-0
+-100
+100
+-100
+100
+1
+1
 1
 ticks
-60.0
-
-SLIDER
-492
-10
-664
-43
-flock-size
-flock-size
-10
-200
 30.0
+
+CHOOSER
+634
 10
-1
-NIL
-HORIZONTAL
+772
+55
+target-function
+target-function
+"sphere" "rastrigin" "random"
+2
 
 BUTTON
-0
-504
-70
-537
+634
+54
+704
+87
 NIL
 setup
 NIL
@@ -146,25 +212,25 @@ NIL
 1
 
 SLIDER
-492
+770
+10
+942
 43
-664
-76
-velocity
-velocity
-0.1
-2.0
-0.5
-0.1
+particles-number
+particles-number
+2
+30
+10.0
+1
 1
 NIL
 HORIZONTAL
 
 BUTTON
-70
-504
-133
-537
+703
+54
+772
+87
 NIL
 go
 T
@@ -177,148 +243,102 @@ NIL
 NIL
 0
 
-SLIDER
-664
+SWITCH
+942
 10
-836
+1045
 43
-vision
-vision
+trace?
+trace?
 1
-20
-20.0
-0.5
 1
-NIL
-HORIZONTAL
+-1000
 
 SLIDER
-664
+770
 43
-836
+942
 76
-min-sep
-min-sep
-1
-10
-2.2
-0.2
+alpha-max
+alpha-max
+0
+0.1
+0.04
+0.01
 1
 NIL
 HORIZONTAL
-
-SWITCH
-493
-75
-618
-108
-separate?
-separate?
-0
-1
--1000
-
-SWITCH
-618
-75
-721
-108
-align?
-align?
-0
-1
--1000
-
-SWITCH
-721
-75
-824
-108
-flock?
-flock?
-0
-1
--1000
-
-PLOT
-495
-108
-807
-394
-min distance
-NIL
-NIL
-0.0
-10.0
-0.0
-11.0
-true
-false
-"" ""
-PENS
-"min-dist" 1.0 0 -4699768 true "" "plot mean [closest-dist] of birds"
-
-PLOT
-1122
-108
-1462
-393
-alignment
-NIL
-NIL
-0.0
-10.0
-0.0
-1.0
-true
-false
-"" ""
-PENS
-"align" 1.0 0 -2674135 true "" "plot mean [aligning] of birds"
-
-PLOT
-807
-108
-1122
-393
-Density
-NIL
-NIL
-0.0
-10.0
-0.0
-10.0
-true
-false
-"set-plot-y-range 0 flock-size" ""
-PENS
-"density" 1.0 0 -955883 true "" "plot mean [n-mates] of birds"
 
 SLIDER
-836
-10
-1008
-43
-omega
-omega
-1
-180
-1.0
-1
+770
+76
+942
+109
+beta-max
+beta-max
+0
+0.1
+0.05
+0.01
 1
 NIL
 HORIZONTAL
 
-SWITCH
-133
-504
-273
-537
-track-flight?
-track-flight?
+INPUTBOX
+770
+109
+860
+169
+v-max
+1.0
+1
+0
+Number
+
+INPUTBOX
+860
+109
+942
+169
+gamma
+0.999
+1
+0
+Number
+
+PLOT
+634
+169
+1665
+647
+averages
+NIL
+NIL
+0.0
+10.0
+0.0
+10.0
+true
+true
+"" ""
+PENS
+"best" 1.0 0 -14454117 true "" "plot (min [p-val] of particles - best-val)"
+"average" 1.0 0 -4699768 true "" "plot (mean [p-val] of particles - best-val)"
+
+SLIDER
+941
+43
+1113
+76
+vision
+vision
+0
+100
+100.0
 1
 1
--1000
+NIL
+HORIZONTAL
 
 @#$#@#$#@
 ## WHAT IS IT?
