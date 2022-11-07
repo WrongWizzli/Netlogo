@@ -264,7 +264,7 @@ CHOOSER
 layout
 layout
 "random" "circle" "grid" "circle centre" "double circle" "spike" "sun" "mosaic"
-2
+5
 
 BUTTON
 532
@@ -291,8 +291,8 @@ SLIDER
 ants-number
 ants-number
 1
-100
-100.0
+1000
+200.0
 1
 1
 NIL
@@ -308,7 +308,7 @@ alpha
 0
 5
 1.0
-0.01
+0.1
 1
 NIL
 HORIZONTAL
@@ -322,8 +322,8 @@ beta
 beta
 0
 5
-1.02
-0.01
+1.0
+0.1
 1
 NIL
 HORIZONTAL
@@ -367,7 +367,7 @@ SWITCH
 154
 show-best?
 show-best?
-0
+1
 1
 -1000
 
