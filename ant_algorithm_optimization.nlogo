@@ -292,7 +292,7 @@ ants-number
 ants-number
 1
 1000
-200.0
+103.0
 1
 1
 NIL
@@ -367,7 +367,7 @@ SWITCH
 154
 show-best?
 show-best?
-1
+0
 1
 -1000
 
