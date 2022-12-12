@@ -1,104 +1,59 @@
-globals [ rules ]
-
-patches-own [ state ]
+patches-own [ state old-state l-n cell have-good?]
 
 
-to make-rules
-  let n number
-  set rules (list)
-  let n-rules m ^ (2 * r + 1)
-  repeat n-rules [
-    set rules lput (n mod m) rules
-    set n floor (n / m)
-  ]
-  print rules
-end
-
-
-to setup
+to setup [mode]
   clear-all
-  make-rules
-  ask patches [ setup-patch ]
+  ask patches [setup-patch mode]
   reset-ticks
 end
 
 
 to recolor
-  if state = -1 [ set pcolor gray ]
-  if state = 0 [ set pcolor color-0 ]
-  if state = 1 [ set pcolor color-1 ]
-  if state = 2 [ set pcolor color-2 ]
-  if state = 3 [ set pcolor color-3 ]
+  ask cell [
+    set color rgb (255 / m * state) (255 - state * 255 / m) (255 - state * 255 / m)
+  ]
 end
 
 
-to setup-patch
-  ifelse pycor != max-pycor
-  [
-    set state -1
-  ]
-  [
-    if init-state = "random" [
-      let p random-float 1
-      let i 0
-      let step 1 / m
-      repeat m [
-        if p > step * i [
-          set state i
-        ]
-        set i i + 1
-      ]
-    ]
-    if init-state = "single 1" [
-      set state 0
-      if pxcor = 0 [ set state 1 ]
-    ]
+to setup-patch [mode]
+  set pcolor 0
+  set old-state 0
+  set state random m
+  sprout 1 [
+    set shape "circle"
+    set size 0.8
+    set cell self
   ]
   recolor
 end
 
 
 to go
-  let c-l max-pycor - ticks - 1
-  ask patches with [ pycor = c-l ] [ update-patch ]
-  if c-l = min-pycor [ stop ]
-  tick
-end
-
-
-to update-patch
-  if (pxcor = min-pxcor or pxcor = max-pxcor) and boundaries != "cyclic" [
-    set state boundaries
-    stop
-  ]
-  let code 0
-  let i (- r)
-  repeat 2 * r + 1 [
-    let cur-state [state] of patch-at i 1
-    set code code * m
-    set code code + cur-state
-    set i i + 1
-  ]
-  set state item code rules
-  if reverse? [
-    let state-1 [state] of patch-at 0 2
-    ifelse state > 0 xor state-1 > 0 [
-      set state 1
-    ] [
-      set state 0
+  ask patches [
+    let my-state state
+    let my-good? false
+    ask neighbors [
+      if (my-state + 1) mod m = state [
+        set my-good? true
+      ]
     ]
+    set have-good? my-good?
   ]
-  recolor
+  ask patches [
+    if have-good? [set state (state + 1) mod m]
+    recolor
+  ]
+  tick
 end
 @#$#@#$#@
 GRAPHICS-WINDOW
 0
 10
-1099
-749
+737
+748
 -1
 -1
-7.23
+14.3
 1
 10
 1
@@ -108,23 +63,23 @@ GRAPHICS-WINDOW
 1
 1
 1
--75
-75
--50
-50
-1
-1
+-25
+25
+-25
+25
+0
+0
 1
 ticks
 30.0
 
 BUTTON
-1099
+736
 10
-1169
+821
 43
-NIL
 setup
+setup \"random\"
 NIL
 1
 T
@@ -135,44 +90,29 @@ NIL
 NIL
 1
 
-INPUTBOX
-1513
-10
-1668
-70
-color-0
-126.0
+BUTTON
+821
+42
+886
+75
+step-go
+go
+NIL
 1
-0
-Color
-
-INPUTBOX
-1513
-70
-1668
-130
-color-1
-67.0
-1
-0
-Color
-
-CHOOSER
-1098
-43
-1236
-88
-init-state
-init-state
-"random" "single 1"
+T
+OBSERVER
+NIL
+NIL
+NIL
+NIL
 0
 
 BUTTON
-1169
-10
-1238
-43
-NIL
+736
+42
+821
+75
+forever-go
 go
 T
 1
@@ -184,89 +124,16 @@ NIL
 NIL
 0
 
-CHOOSER
-1099
-88
-1237
-133
-boundaries
-boundaries
-"cyclic" 0 1
-0
-
-SLIDER
-1099
-133
-1236
-166
-r
-r
-1
-4
-1.0
-1
-1
-NIL
-HORIZONTAL
-
 INPUTBOX
-1098
-199
-1235
-259
-number
-137.0
+950
+10
+1105
+70
+m
+15.0
 1
 0
 Number
-
-SLIDER
-1099
-166
-1236
-199
-m
-m
-2
-4
-2.0
-1
-1
-NIL
-HORIZONTAL
-
-INPUTBOX
-1513
-129
-1668
-189
-color-2
-46.0
-1
-0
-Color
-
-INPUTBOX
-1513
-189
-1668
-249
-color-3
-105.0
-1
-0
-Color
-
-SWITCH
-1238
-10
-1355
-43
-reverse?
-reverse?
-0
-1
--1000
 
 @#$#@#$#@
 ## WHAT IS IT?

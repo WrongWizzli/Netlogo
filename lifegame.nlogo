@@ -1,104 +1,164 @@
-globals [ rules ]
-
-patches-own [ state ]
+patches-own [ state old-state l-n cell ]
 
 
-to make-rules
-  let n number
-  set rules (list)
-  let n-rules m ^ (2 * r + 1)
-  repeat n-rules [
-    set rules lput (n mod m) rules
-    set n floor (n / m)
-  ]
-  print rules
-end
-
-
-to setup
+to setup [mode]
   clear-all
-  make-rules
-  ask patches [ setup-patch ]
+  ask patches [setup-patch mode]
   reset-ticks
 end
 
 
 to recolor
-  if state = -1 [ set pcolor gray ]
-  if state = 0 [ set pcolor color-0 ]
-  if state = 1 [ set pcolor color-1 ]
-  if state = 2 [ set pcolor color-2 ]
-  if state = 3 [ set pcolor color-3 ]
+  ask cell [
+    if state = 1 [
+      set color Alive
+      stop
+    ]
+    if old-state = 1 [
+      set color Dead-recently
+      stop
+    ]
+    set color Dead
+  ]
 end
 
 
-to setup-patch
-  ifelse pycor != max-pycor
-  [
-    set state -1
+to setup-patch [mode]
+  set pcolor Dead
+  set old-state 0
+  set state 0
+  if mode = "random" and random 100 < density [
+    set state 1
   ]
-  [
-    if init-state = "random" [
-      let p random-float 1
-      let i 0
-      let step 1 / m
-      repeat m [
-        if p > step * i [
-          set state i
-        ]
-        set i i + 1
-      ]
-    ]
-    if init-state = "single 1" [
-      set state 0
-      if pxcor = 0 [ set state 1 ]
-    ]
+  sprout 1 [
+    set shape "circle"
+    set size 0.8
+    set cell self
   ]
   recolor
 end
 
 
 to go
-  let c-l max-pycor - ticks - 1
-  ask patches with [ pycor = c-l ] [ update-patch ]
-  if c-l = min-pycor [ stop ]
+  ask patches [
+    set l-n sum [state] of neighbors
+  ]
+  ask patches [
+    set old-state state
+    ;ifelse l-n = 3 or (l-n = 2 and state = 1)
+    ifelse runresult life-rules
+    [set state 1]
+    [set state 0]
+    recolor
+  ]
   tick
 end
 
 
-to update-patch
-  if (pxcor = min-pxcor or pxcor = max-pxcor) and boundaries != "cyclic" [
-    set state boundaries
-    stop
-  ]
-  let code 0
-  let i (- r)
-  repeat 2 * r + 1 [
-    let cur-state [state] of patch-at i 1
-    set code code * m
-    set code code + cur-state
-    set i i + 1
-  ]
-  set state item code rules
-  if reverse? [
-    let state-1 [state] of patch-at 0 2
-    ifelse state > 0 xor state-1 > 0 [
-      set state 1
-    ] [
+to draw-standart
+  let p patch mouse-xcor mouse-ycor
+  let erase? [state = 1] of p
+  while [mouse-down?] [
+    ask patch mouse-xcor mouse-ycor [
       set state 0
+      if not erase? [set state 1]
+      recolor
+    ]
+    display
+  ]
+end
+
+
+to draw-glider-standart [p]
+  ask p [
+    set state 0
+    recolor
+    ask patch-at 1 1 [
+      set state 0
+      recolor
+    ]
+    ask patch-at 1 0 [
+      set state 1
+      recolor
+    ]
+    ask patch-at 1 -1 [
+      set state 1
+      recolor
+    ]
+    ask patch-at 0 1 [
+      set state 1
+      recolor
+    ]
+    ask patch-at 0 -1 [
+      set state 1
+      recolor
+    ]
+    ask patch-at -1 -1 [
+      set state 1
+      recolor
+    ]
+    ask patch-at -1 0 [
+      set state 0
+      recolor
+    ]
+    ask patch-at -1 1 [
+      set state 0
+      recolor
     ]
   ]
-  recolor
+end
+
+
+to reverse-hor [p]
+  ask p [
+    ask patch-at -1 0 [set state 1 recolor]
+    ask patch-at 1 0 [set state 0 recolor]
+  ]
+end
+
+
+to reverse-ver [p]
+  ask p [
+    ask patch-at -1 -1 [set state 0 recolor]
+    ask patch-at -1 1 [set state 1 recolor]
+    ask patch-at 1 -1 [set state 0 recolor]
+    ask patch-at 1 1 [set state 1 recolor]
+  ]
+end
+
+
+to draw-glider
+  let p patch mouse-xcor mouse-ycor
+  if mouse-down? [
+    draw-glider-standart p
+    if orientation = "reverse-horizontal" [
+      reverse-hor p
+    ]
+    if orientation = "reverse-vertical" [
+      reverse-ver p
+    ]
+    if orientation = "double-reverse" [
+      reverse-hor p
+      reverse-ver p
+    ]
+    display
+  ]
+end
+
+
+to draw
+  if draw-input = "standart" [draw-standart]
+  if draw-input = "glider" [draw-glider]
 end
 @#$#@#$#@
 GRAPHICS-WINDOW
 0
 10
-1099
-749
+737
+748
 -1
 -1
-7.23
+14.3
 1
 10
 1
@@ -108,23 +168,56 @@ GRAPHICS-WINDOW
 1
 1
 1
--75
-75
--50
-50
-1
-1
+-25
+25
+-25
+25
+0
+0
 1
 ticks
 30.0
 
-BUTTON
-1099
+INPUTBOX
+1513
 10
-1169
+1668
+70
+Alive
+66.0
+1
+0
+Color
+
+INPUTBOX
+1513
+70
+1668
+130
+Dead-recently
+17.0
+1
+0
+Color
+
+INPUTBOX
+1513
+129
+1668
+189
+Dead
+0.0
+1
+0
+Color
+
+BUTTON
+736
+10
+821
 43
-NIL
-setup
+random
+setup \"random\"
 NIL
 1
 T
@@ -135,44 +228,61 @@ NIL
 NIL
 1
 
-INPUTBOX
-1513
+BUTTON
+820
 10
-1668
-70
-color-0
-126.0
-1
-0
-Color
-
-INPUTBOX
-1513
-70
-1668
-130
-color-1
-67.0
-1
-0
-Color
-
-CHOOSER
-1098
+885
 43
-1236
-88
-init-state
-init-state
-"random" "single 1"
+clear
+setup \"clear\"
+NIL
+1
+T
+OBSERVER
+NIL
+NIL
+NIL
+NIL
+1
+
+SLIDER
+951
+10
+1123
+43
+density
+density
+0
+100
+66.0
+1
+1
+NIL
+HORIZONTAL
+
+BUTTON
+821
+42
+886
+75
+step-go
+go
+NIL
+1
+T
+OBSERVER
+NIL
+NIL
+NIL
+NIL
 0
 
 BUTTON
-1169
-10
-1238
-43
-NIL
+736
+42
+821
+75
+forever-go
 go
 T
 1
@@ -184,89 +294,53 @@ NIL
 NIL
 0
 
-CHOOSER
-1099
-88
-1237
-133
-boundaries
-boundaries
-"cyclic" 0 1
-0
-
-SLIDER
-1099
-133
-1236
-166
-r
-r
-1
-4
-1.0
-1
-1
-NIL
-HORIZONTAL
-
-INPUTBOX
-1098
-199
-1235
-259
-number
-137.0
-1
-0
-Number
-
-SLIDER
-1099
-166
-1236
-199
-m
-m
-2
-4
-2.0
-1
-1
-NIL
-HORIZONTAL
-
-INPUTBOX
-1513
-129
-1668
-189
-color-2
-46.0
-1
-0
-Color
-
-INPUTBOX
-1513
-189
-1668
-249
-color-3
-105.0
-1
-0
-Color
-
-SWITCH
-1238
+BUTTON
+885
 10
-1355
+951
 43
-reverse?
-reverse?
-0
+NIL
+draw
+T
 1
--1000
+T
+OBSERVER
+NIL
+NIL
+NIL
+NIL
+1
+
+CHOOSER
+951
+43
+1123
+88
+draw-input
+draw-input
+"standart" "glider"
+0
+
+CHOOSER
+951
+88
+1123
+133
+orientation
+orientation
+"standard" "reverse-horizontal" "reverse-vertical" "double-reverse"
+0
+
+INPUTBOX
+1123
+10
+1513
+70
+life-rules
+(l-n mod 2) = 1
+1
+0
+String (commands)
 
 @#$#@#$#@
 ## WHAT IS IT?
